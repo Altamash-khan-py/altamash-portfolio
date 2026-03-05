@@ -1,0 +1,38 @@
+{
+  "name": "portfolio-platform",
+  "version": "1.0.0",
+  "description": "Production-grade portfolio platform with CMS",
+  "private": true,
+  "workspaces": [
+    "frontend/*",
+    "frontend/apps/*",
+    "backend/*",
+    "backend/apps/*",
+    "shared/*",
+    "shared/packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:migrate": "cd shared/packages/database && npx prisma migrate dev",
+    "db:generate": "cd shared/packages/database && npx prisma generate",
+    "db:seed": "cd shared/packages/database && npx prisma db seed",
+    "db:studio": "cd shared/packages/database && npx prisma studio"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "turbo": "^1.12.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "dependencies": {
+    "@next/swc-win32-x64-msvc": "^16.1.6"
+  }
+}

@@ -1,0 +1,422 @@
+// Portfolio Platform Database Schema
+// Clean Architecture - Domain Layer
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  profile       Profile?
+  adminLogs     AdminLog[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+  @@index([email])
+  @@index([role])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+  ipAddress String?   @map("ip_address")
+  userAgent String?   @map("user_agent")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+  @@index([userId])
+  @@index([token])
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+// ============================================
+// PROFILE
+// ============================================
+
+model Profile {
+  id           String    @id @default(uuid())
+  userId       String    @unique @map("user_id")
+  fullName     String    @map("full_name")
+  title        String
+  bio          String    @db.Text
+  location     String
+  birthDate    DateTime? @map("birth_date")
+  quote        String    @db.Text
+  avatarUrl    String?   @map("avatar_url")
+  faviconUrl   String?   @map("favicon_url")
+  resumeUrl    String?   @map("resume_url")
+  
+  // SEO Fields
+  seoTitle       String? @map("seo_title")
+  seoDescription String? @map("seo_description") @db.Text
+  seoKeywords    String? @map("seo_keywords")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  socialLinks  SocialLink[]
+  skills       Skill[]
+  experiences  Experience[]
+  projects     Project[]
+  books        Book[]
+  quotes       Quote[]
+  quests       Quest[]
+  timelineEvents TimelineEvent[]
+
+  @@map("profiles")
+  @@index([userId])
+}
+
+model SocialLink {
+  id        String   @id @default(uuid())
+  profileId String   @map("profile_id")
+  platform  String
+  url       String
+  order     Int      @default(0)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("social_links")
+  @@index([profileId])
+  @@index([platform])
+}
+
+// ============================================
+// SKILLS
+// ============================================
+
+model SkillCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?  @db.Text
+  icon        String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  skills Skill[]
+
+  @@map("skill_categories")
+  @@index([order])
+}
+
+model Skill {
+  id          String    @id @default(uuid())
+  profileId   String    @map("profile_id")
+  categoryId  String    @map("category_id")
+  name        String
+  level       SkillLevel @default(BEGINNER)
+  description String?   @db.Text
+  icon        String?
+  order       Int       @default(0)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  profile  Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  category SkillCategory @relation(fields: [categoryId], references: [id])
+
+  @@map("skills")
+  @@index([profileId])
+  @@index([categoryId])
+  @@index([order])
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+// ============================================
+// EXPERIENCE
+// ============================================
+
+model Experience {
+  id          String   @id @default(uuid())
+  profileId   String   @map("profile_id")
+  company     String
+  role        String
+  description String   @db.Text
+  location    String?
+  startDate   DateTime @map("start_date")
+  endDate     DateTime? @map("end_date")
+  isCurrent   Boolean  @default(false) @map("is_current")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("experience")
+  @@index([profileId])
+  @@index([startDate])
+  @@index([isCurrent])
+}
+
+// ============================================
+// PROJECTS
+// ============================================
+
+model Project {
+  id           String        @id @default(uuid())
+  profileId    String        @map("profile_id")
+  title        String
+  slug         String        @unique
+  description  String        @db.Text
+  shortDescription String?   @map("short_description")
+  thumbnailUrl String?       @map("thumbnail_url")
+  githubUrl    String?       @map("github_url")
+  liveUrl      String?       @map("live_url")
+  tags         String[]
+  status       ProjectStatus @default(IN_PROGRESS)
+  startDate    DateTime?     @map("start_date")
+  endDate      DateTime?     @map("end_date")
+  
+  // SEO Fields
+  seoTitle       String? @map("seo_title")
+  seoDescription String? @map("seo_description") @db.Text
+  
+  order        Int           @default(0)
+  isFeatured   Boolean       @default(false) @map("is_featured")
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("projects")
+  @@index([profileId])
+  @@index([slug])
+  @@index([status])
+  @@index([isFeatured])
+  @@index([order])
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+  ARCHIVED
+}
+
+// ============================================
+// BOOKS (LIBRARY)
+// ============================================
+
+model Book {
+  id          String   @id @default(uuid())
+  profileId   String   @map("profile_id")
+  title       String
+  author      String
+  coverUrl    String?  @map("cover_url")
+  description String?  @db.Text
+  lessons     String?  @db.Text
+  quotes      String?  @db.Text
+  rating      Int?
+  readDate    DateTime? @map("read_date")
+  isFavorite  Boolean  @default(false) @map("is_favorite")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("books")
+  @@index([profileId])
+  @@index([readDate])
+  @@index([isFavorite])
+}
+
+// ============================================
+// QUOTES
+// ============================================
+
+model Quote {
+  id         String   @id @default(uuid())
+  profileId  String   @map("profile_id")
+  text       String   @db.Text
+  author     String
+  source     String?
+  context    String?  @db.Text
+  isFeatured Boolean  @default(false) @map("is_featured")
+  order      Int      @default(0)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("quotes")
+  @@index([profileId])
+  @@index([isFeatured])
+}
+
+// ============================================
+// QUESTS / IDEAS
+// ============================================
+
+model Quest {
+  id          String       @id @default(uuid())
+  profileId   String       @map("profile_id")
+  title       String
+  description String       @db.Text
+  status      QuestStatus  @default(IDEA)
+  priority    QuestPriority @default(MEDIUM)
+  tags        String[]
+  startDate   DateTime?    @map("start_date")
+  targetDate  DateTime?    @map("target_date")
+  completedAt DateTime?    @map("completed_at")
+  order       Int          @default(0)
+  isActive    Boolean      @default(true) @map("is_active")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("quests")
+  @@index([profileId])
+  @@index([status])
+  @@index([priority])
+}
+
+enum QuestStatus {
+  IDEA
+  PLANNING
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum QuestPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ============================================
+// TIMELINE EVENTS
+// ============================================
+
+model TimelineEvent {
+  id          String        @id @default(uuid())
+  profileId   String        @map("profile_id")
+  title       String
+  description String        @db.Text
+  date        DateTime
+  type        TimelineType  @default(PERSONAL)
+  icon        String?
+  color       String?
+  linkUrl     String?       @map("link_url")
+  linkText    String?       @map("link_text")
+  order       Int           @default(0)
+  isActive    Boolean       @default(true) @map("is_active")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("timeline_events")
+  @@index([profileId])
+  @@index([date])
+  @@index([type])
+}
+
+enum TimelineType {
+  PERSONAL
+  EDUCATION
+  CAREER
+  PROJECT
+  SKILL
+  MILESTONE
+}
+
+// ============================================
+// ADMIN LOGS
+// ============================================
+
+model AdminLog {
+  id         String   @id @default(uuid())
+  adminId    String   @map("admin_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("admin_logs")
+  @@index([adminId])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+// ============================================
+// SITE SETTINGS
+// ============================================
+
+model SiteSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  category  String   @default("general")
+  description String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+  @@index([category])
+}
